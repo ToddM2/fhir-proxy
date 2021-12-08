@@ -32,6 +32,7 @@ namespace FHIRProxy
         }
         public static async Task<string> GetAADAccessToken(string authority, string clientId, string clientSecret, string audience, bool msi,ILogger log)
         {
+            msi = true;
             try
             {
                 if (msi)
