@@ -1,32 +1,90 @@
-# FHIR-Proxy Getting startd scripts Readme
-Script purpose, order of execution and other steps necessary to get up and running with FHIR-Proxy
+# FHIR-Proxy Getting Started with Deploy Scripts
+In this document we go over the deploy scripts necessary for installing FHIR-Proxy. We cover the order of script execution and the steps needed to get up and running.
 
+## Errata 
+There are no open issues at this time. 
 
 ## Prerequisites 
 
-These scripts will gather (and export) information necessary to the proper operation of the FHIR-Proxy and will store that information into the FHIR-Proxy Keyvault.  
- - Prerequisites:  Azure API for FHIR 
- - Prerequisites:  Global Admin Privelages to resiter Application Service Clients 
- - Prerequisites:  Subscription Contributor role to provision resources  
+These scripts will gather (and export) information necessary for the proper deployment and configuration of FHIR Proxy. In the deploy process, an Application Service Principal for RBAC will be configured. If needed, a Key Vault and Resource Group will also be deployed. All credential secrets will be stored in the Key Vault.  
+ - User must have rights to deploy resources at the Subscription scope (i.e., Contributor role).
+ - User must have Application Administrator rights in AAD to assign Consent at the Service Principal scope in Step 2.
+
+__Note__
+A Key Vault is necessary for securing Service Client Credentials used with the FHIR Service and FHIR-Proxy.  Only one Key Vault should be used as this script scans the Key Vault for FHIR Service and FHIR-Proxy values. If multiple Key Vaults have been deployed, please use the [backup and restore](https://docs.microsoft.com/en-us/azure/key-vault/general/backup?tabs=azure-cli) option to copy values to one Key Vault.
+
+__Note__ 
+The FHIR-Proxy scripts are designed for and tested from the Azure Cloud Shell - Bash Shell environment.
 
 
-## Step 1.  deployFhirProxy.bash
-This is the main component deployment script for the Azure Components and FHIR-Proxy code.  Note that retry logic is used to account for provisioning delays, i.e., networking provisioning is taking some extra time.  Default retry logic is 5 retries.   
+### Naming & Tagging
+All Azure resource types have a scope that defines the level at which resource names must be unique. Some resource names, such as PaaS services with public endpoints, have global scopes so they must be unique across the entire Azure platform. Our deployment scripts strive to suggest naming standards that group logical connections while aligning with Azure best practices. Customers are prompted to accept a default name or supply their own names during installation. See below for the FHIR-Proxy resource naming convention.
+
+Resource Type | Deploy App Name | Number      | Resource Name Example (automatically generated)
+------------|-----------------|-------------|------------------------------------------------
+sf-         | proxy           | random      | sf-proxy123456
+
+Resources are tagged with their deployment script and origin.  Customers are able to add Tags after installation, examples include::
+
+Origin              |  Deployment       
+--------------------|-----------------
+HealthArchitectures | FHIR-Proxy   
+
+---
+
+## Setup 
+Please note you should deploy these components into a tenant and subscriotion where you have appropriate permissions to create and manage Application Registrations (ie Application Adminitrator RBAC Role in AAD), and can deploy Resources at the Subscription Scope (Contributor role or above). 
+
+Launch Azure Cloud Shell (Bash Environment)  
+  
+[![Launch Azure Shell](/docs/images/launchcloudshell.png "Launch Cloud Shell")](https://shell.azure.com/bash?target="_blank")
+
+Clone the repo to your Bash Shell (CLI) environment 
+```azurecli-interactive
+git clone https://github.com/microsoft/fhir-proxy 
+```
+Change working directory to the repo Scripts directory
+```azurecli-interactive
+cd $HOME/fhir-proxy/scripts
+```
+
+Make the Bash Shell Scripts used for Deployment and Setup executable 
+```azurecli-interactive
+chmod +x *.bash 
+```
+
+## Step 1.  deployFhirproxy.bash
+This is the main component deployment script for the FHIR-Proxy Azure components.    
+
+Ensure you are in the proper directory 
+```azurecli-interactive
+cd $HOME/fhir-proxy/scripts
+``` 
+
+Launch the deployfhirproxy.bash shell script 
+```azurecli-interactive
+./deployfhirproxy.bash 
+``` 
+
+Optionally the deployment script can be used with command line options 
+```azurecli
+./deployfhirproxy.bash -i <subscriptionId> -g <resourceGroupName> -l <resourceGroupLocation> -k <keyVaultName> -n <deployPrefix>
+```
 
 Azure Components installed 
+ - Resource Group (if needed)
+ - Key Vault if needed (customers can choose to use an existing Key Vault as long as they have Purge Secrets access)
+ - Azure AD Application Service Principal for RBAC 
  - Function App (FHIR-Proxy) with App Insights and Storage 
- - Function App Service plan 
- - Keyvault (if not already installed)
+ - Function App Service Plan 
 
 Information needed by this script 
- - Resource Group Name
+ - FHIR Service Name
+ - Key Vault Name 
  - Resource Group Location 
- - Key Vault Name
- - FHIR Service Information (URL, Service Client ID, Secret, Tenant ID)
- 
+ - Resource Group Name 
 
-
-FHIR-Proxy Application Configuration values loaded by this script 
+Application Configuration values loaded by this script 
 
 Name                               | Value                      | Located              
 -----------------------------------|----------------------------|--------------------
@@ -56,24 +114,68 @@ FS-RESOURCE                        | FHIR Resource              | Keyvault refer
 
 
 ## Step 2.  createProxyServiceClient.bash
+Please review the Setup steps above and make sure that you are in the Azure Cloud Shell (Bash Environment) from Step 1. 
 
-FHIR-Proxy Application Configuration values loaded by this script 
+Ensure that you are in the proper directory 
+```azurecli-interactive
+cd $HOME/fhir-proxy/scripts
+``` 
+
+Launch the createproxyserviceclient.bash shell script 
+```azurecli-interactive
+./createproxyserviceclient.bash 
+``` 
+
+Optionally the createproxyserviceclient script can be used with command line options 
+```azurecli
+./createproxyserviceclient.bash -k <keyVaultName> -n <serviceClient name>
+```
+
+Keyvault values loaded by this script 
 
 Name                               | Value                      | Located              
 -----------------------------------|----------------------------|--------------------
-FP-SC-TENANT-NAME                  | GUID                       | App Service Config  
-FP-SC-CLIENT-ID                    | InstrumentationKey         | App Service Config 
-FP-SC-SECRET                       | Endpoint                   | App Service Config 
-FP-SC-RESOURCE                     | Function Version           | App Service Config 
-FP-SC-URL                          | Function Version           | App Service Config 
+FP-SC-TENANT-NAME                  | GUID                       | Keyvault reference  
+FP-SC-CLIENT-ID                    | Proxy Service Client ID    | Keyvault reference 
+FP-SC-SECRET                       | Proxy Service Secret       | Keyvault reference 
+FP-SC-RESOURCE                     | FHIR Resource ID           | Keyvault reference 
+FP-SC-URL                          | Proxy URL                  | Keyvault reference 
+
+
+## Step 3.  Grant Admin Access (Portal)
+We purposely do not grant admin access in the createproxyservicevclient.bash script as not everyone has Application Administrator rights. We will supply an "admin script" for this in the next release. In the meantime, here are the Azure Portal steps necessary to grant admin access. 
+
+Log into the Azure Portal, and go to Azure Active Directory 
+
+![login](../docs/images/login.png)
+
+Go to App Registrations and find the client created with the createProxyServiceClient.bash script 
+
+![appreg](../docs/images/appreg.png)
+
+Select API Permissions on the left blade, then slect Grant admin consent for "your tenant name"
+
+![api](../docs/images/api-permissions.png)
+
+Grant Admin Consent 
+
+![apigrant](../docs/images/api-grant.png)
+
+![apigrant](../docs/images/api-grant2.png)
+
+Complete 
+
+![apigrant](../docs/images/complete.png)
+
+---
 
 # References 
-FHIR-Proxy serves as a middle tier application / access and authorization endpoint.  To better understand the difference in these approaches users should review 
+FHIR-Proxy serves as a middle tier application / access and authorization endpoint. To better understand the difference in these approaches users should review 
 
-- Client Credentials, or Implicit Oauth flow with token 
-- Auth clode flow with code for token exchange
+- Client Credentials, or Implicit Oauth 2.0 flow with access token
+- OAuth 2.0 Authorization code flow with access token
 
-To request an access token users make an HTTP POST to the tenant-specific Microsoft identity platform token endpoint with the following parameters.
+To request an access token, users make an HTTP POST to the tenant-specific Microsoft identity platform token endpoint with the following parameters:
 
 ```azurecli
 https://login.microsoftonline.com/<tenant>/oauth2/v2.0/token
