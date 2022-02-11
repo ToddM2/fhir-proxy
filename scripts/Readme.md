@@ -16,13 +16,16 @@ A Key Vault is necessary for securing Service Client Credentials used with the F
 __Note__ 
 The FHIR-Proxy scripts are designed for and tested from the Azure Cloud Shell - Bash Shell environment.
 
+__Note__
+For **Private Endpoint** setup and configuration, see [private-endpoints.md](../docs/private-endpoints.md)
+
 
 ### Naming & Tagging
 All Azure resource types have a scope that defines the level at which resource names must be unique. Some resource names, such as PaaS services with public endpoints, have global scopes so they must be unique across the entire Azure platform. Our deployment scripts strive to suggest naming standards that group logical connections while aligning with Azure best practices. Customers are prompted to accept a default name or supply their own names during installation. See below for the FHIR-Proxy resource naming convention.
 
 Resource Type | Deploy App Name | Number      | Resource Name Example (automatically generated)
 ------------|-----------------|-------------|------------------------------------------------
-sf-         | proxy           | random      | sf-proxy123456
+sfp-         | proxy           | random      | sfp-proxy12345
 
 Resources are tagged with their deployment script and origin.  Customers are able to add Tags after installation, examples include::
 
